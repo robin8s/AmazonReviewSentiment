@@ -3,27 +3,38 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using AmazonReviewSentiment;
 using static Microsoft.ML.DataOperationsCatalog;
-string _dataPath = Path.Combine(Environment.CurrentDirectory, "Data", "yelp_labelled.txt");
+
+string _trainPath = Path.Combine(Environment.CurrentDirectory, "Data", "Train.tsv");
+string _testPath = Path.Combine(Environment.CurrentDirectory, "Data", "Test.tsv");
+
+
 
 
 MLContext mlContext = new MLContext();
 
 TrainTestData splitDataView = LoadData(mlContext);
+
+
+//Loads data and splits it into test and train datasets
 TrainTestData LoadData(MLContext mlContext)
 {
-    IDataView dataView = mlContext.Data.LoadFromTextFile<SentimentData>(_dataPath, hasHeader: false);
-    TrainTestData splitDataView = mlContext.Data.TrainTestSplit(dataView, testFraction: 0.2);
 
-    ITransformer model = BuildAndTrainModel(mlContext, splitDataView.TrainSet);
+    IDataView trainData = mlContext.Data.LoadFromTextFile<SentimentData>(_trainPath, hasHeader: true,  separatorChar: '\t');
+
+
+    TrainTestData splitDataView = mlContext.Data.TrainTestSplit(trainData, testFraction: 0.2);
+
+    ITransformer model = BuildAndTrainModel(mlContext, trainData);
     Evaluate(mlContext, model, splitDataView.TestSet);
     UseModelWithSingleItem(mlContext, model);
     UseModelWithBatchItems(mlContext, model);
-
     return splitDataView;
-
-
 }
 
+
+
+
+//Extracts and transforms the data. Trains the model. Predicts sentiment based on test data. Returns the model.
 ITransformer BuildAndTrainModel(MLContext mlContext, IDataView splitTrainSet)
 {
     var estimator = mlContext.Transforms.Text.FeaturizeText(outputColumnName: "Features", inputColumnName: nameof(SentimentData.SentimentText))
@@ -79,20 +90,9 @@ void UseModelWithSingleItem(MLContext mlContext, ITransformer model)
 void UseModelWithBatchItems(MLContext mlContext, ITransformer model)
 {
 
-    IEnumerable<SentimentData> sentiments = new[]
-    {
-        new SentimentData
-        {
-            SentimentText = "This was a horrible meal"
-        },
-        new SentimentData
-        {
-            SentimentText = "I love this spaghetti."
-        }
-    };
-    IDataView batchComments = mlContext.Data.LoadFromEnumerable(sentiments);
+    IDataView testData = mlContext.Data.LoadFromTextFile<SentimentData>(_testPath, hasHeader: true, separatorChar: '\t');
 
-    IDataView predictions = model.Transform(batchComments);
+    IDataView predictions = model.Transform(testData);
 
     // Use model to predict whether comment data is Positive (1) or Negative (0).
     IEnumerable<SentimentPrediction> predictedResults = mlContext.Data.CreateEnumerable<SentimentPrediction>(predictions, reuseRowObject: false);

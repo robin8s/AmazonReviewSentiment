@@ -7,10 +7,11 @@ namespace AmazonReviewSentiment
 {
     public class SentimentData
     {
-        [LoadColumn(0)]
+        [LoadColumn(2)]
         public string? SentimentText;
 
-        [LoadColumn(1), ColumnName("Label")]
+        [LoadColumn(0), ColumnName("Label")]
+  
         public bool Sentiment;
     }
 
